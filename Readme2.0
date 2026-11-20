@@ -1,0 +1,50 @@
+#ElectroMantencion
+
+Aplicación móvil Android orientada a la gestión y seguimiento de servicios de electromantención industrial, facilitando el trabajo de los técnicos en terreno.
+
+## Objetivo
+
+Digitalizar y facilitar la consulta de órdenes de trabajo, el registro de asistencia y la documentación de actividades de mantenimiento.
+
+## Tecnologías utilizadas
+
+- Kotlin
+- Android Studio
+- Jetpack Compose y Material 3
+- SQLite
+- Git y GitHub
+
+##  Funcionalidades principales
+
+- Inicio de sesión con validaciones.
+- Consulta y detalle de servicios asignados.
+- Registro de entrada y salida con SQLite.
+- Captura de evidencias fotográficas.
+- Obtención de ubicación GPS.
+- Perfil del técnico y navegación entre pantallas.
+
+## Estructura del proyecto
+
+- `data`: gestión de datos locales.
+- `ui/screens`: pantallas de la aplicación.
+- `ui/theme`: estilos visuales.
+- `validation`: validaciones.
+- `viewmodel`: gestión del estado.
+- `MainActivity.kt`: navegación principal.
+
+## Ejecución
+
+1. Abrir el proyecto en Android Studio.
+2. Sincronizar Gradle.
+3. Seleccionar un emulador o dispositivo Android.
+4. Presionar **Run**.
+
+Las funciones de cámara y ubicación requieren los permisos correspondientes.
+
+## Repositorio
+
+https://github.com/matjcontreras-ux/ElectroMantencion
+
+##  Estado
+
+Proyecto académico en desarrollo.
