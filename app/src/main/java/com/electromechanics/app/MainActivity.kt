@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.electromechanics.app.data.remote.LoginResponse
 import com.electromechanics.app.ui.screens.PantallaAsistencia
 import com.electromechanics.app.ui.screens.PantallaDetalleServicio
 import com.electromechanics.app.ui.screens.PantallaEvidencia
@@ -78,7 +79,8 @@ fun NavegacionElectroMantencion() {
                 alCambiarUsuario = { nuevoUsuario ->
                     usuario = nuevoUsuario
                 },
-                alIngresar = {
+                alIngresar = { respuesta ->
+                    usuario = respuesta.nombre
                     pantallaActual = "principal"
                 }
             )
@@ -100,6 +102,7 @@ fun NavegacionElectroMantencion() {
                     pantallaActual = "ubicacion"
                 },
                 alCerrarSesion = {
+                    usuario = ""
                     pantallaActual = "login"
                 }
             )
@@ -170,9 +173,10 @@ fun NavegacionElectroMantencion() {
 @Composable
 fun PantallaLogin(
     alCambiarUsuario: (String) -> Unit,
-    alIngresar: () -> Unit,
+    alIngresar: (LoginResponse) -> Unit,
     loginViewModel: LoginViewModel = viewModel()
 ) {
+
     var mensajeInformativo by rememberSaveable {
         mutableStateOf("")
     }
@@ -180,8 +184,6 @@ fun PantallaLogin(
     val mensaje = loginViewModel.mensaje.ifEmpty {
         mensajeInformativo
     }
-
-    val mensajeEsError = loginViewModel.mensaje.isNotEmpty()
 
     Scaffold(
         modifier = Modifier.fillMaxSize()
@@ -233,7 +235,7 @@ fun PantallaLogin(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                isError = loginViewModel.mensaje == "Ingresa tu usuario." ||
+                isError = loginViewModel.mensaje.startsWith("Ingresa tu usuario") ||
                         loginViewModel.mensaje.startsWith("El usuario")
             )
 
@@ -254,9 +256,19 @@ fun PantallaLogin(
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password
                 ),
-                isError = loginViewModel.mensaje == "Ingresa tu contraseña." ||
+                isError = loginViewModel.mensaje.startsWith("Ingresa tu contraseña") ||
                         loginViewModel.mensaje.startsWith("La contraseña")
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (mensaje.isNotEmpty()) {
+                Text(
+                    text = mensaje,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -264,13 +276,20 @@ fun PantallaLogin(
                 onClick = {
                     mensajeInformativo = ""
 
-                    if (loginViewModel.validarIngreso()) {
-                        alIngresar()
+                    loginViewModel.iniciarSesion { respuesta ->
+                        alIngresar(respuesta)
                     }
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !loginViewModel.cargando
             ) {
-                Text("Ingresar")
+                Text(
+                    if (loginViewModel.cargando) {
+                        "Ingresando..."
+                    } else {
+                        "Ingresar"
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -282,20 +301,6 @@ fun PantallaLogin(
                 }
             ) {
                 Text("¿Olvidaste tu contraseña?")
-            }
-
-            if (mensaje.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = mensaje,
-                    color = if (mensajeEsError) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    },
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }

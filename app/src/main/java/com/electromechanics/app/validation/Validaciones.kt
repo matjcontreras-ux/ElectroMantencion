@@ -1,4 +1,3 @@
-
 package com.electromechanics.app.validation
 
 object Validaciones {

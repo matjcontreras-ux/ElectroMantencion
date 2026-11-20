@@ -1,6 +1,8 @@
-
 package com.electromechanics.app.ui.screens
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -24,9 +26,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.google.android.gms.location.LocationServices
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +46,35 @@ fun PantallaPrincipal(
     alRegistrarUbicacion: () -> Unit = {},
     alCerrarSesion: () -> Unit = {}
 ) {
+    // 1. Variables de Ubicación
+    val contexto = LocalContext.current
+    val clienteUbicacion = remember { LocationServices.getFusedLocationProviderClient(contexto) }
+    var textoUbicacion by remember { mutableStateOf("Obtén las coordenadas del lugar donde realizas el servicio.") }
+
+    // 2. Lanzador de permisos de GPS
+    val lanzadorPermisos = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permisos ->
+        val permisoConcedido = permisos[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permisos[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+
+        if (permisoConcedido) {
+            try {
+                clienteUbicacion.lastLocation.addOnSuccessListener { ubicacion ->
+                    if (ubicacion != null) {
+                        textoUbicacion = "Lat: ${ubicacion.latitude}, Lon: ${ubicacion.longitude}"
+                    } else {
+                        textoUbicacion = "GPS sin señal. Abre Google Maps y reintenta."
+                    }
+                }
+            } catch (e: SecurityException) {
+                textoUbicacion = "Error de seguridad con el GPS"
+            }
+        } else {
+            textoUbicacion = "Permiso denegado. No se puede obtener ubicación."
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -101,11 +138,20 @@ fun PantallaPrincipal(
                     alPresionar = alRegistrarAsistencia
                 )
 
+                // 3. Tarjeta de Ubicación actualizada con el texto dinámico y el lanzador
                 TarjetaFuncion(
                     titulo = "Ubicación del técnico",
-                    descripcion = "Obtén las coordenadas del lugar donde realizas el servicio.",
+                    descripcion = textoUbicacion,
                     textoBoton = "Registrar ubicación",
-                    alPresionar = alRegistrarUbicacion
+                    alPresionar = {
+                        lanzadorPermisos.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                        alRegistrarUbicacion()
+                    }
                 )
 
                 TarjetaFuncion(

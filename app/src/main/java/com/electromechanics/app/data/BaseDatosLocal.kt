@@ -1,4 +1,3 @@
-
 package com.electromechanics.app.data
 
 import android.content.ContentValues
@@ -7,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
 class BaseDatosLocal(context: Context) :
-    SQLiteOpenHelper(context, "electromantencion.db", null, 1) {
+    SQLiteOpenHelper(context, "electromantencion.db", null, 2) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -21,6 +20,7 @@ class BaseDatosLocal(context: Context) :
             )
             """.trimIndent()
         )
+        crearTablaUsuarios(db)
     }
 
     override fun onUpgrade(
@@ -28,7 +28,68 @@ class BaseDatosLocal(context: Context) :
         versionAnterior: Int,
         versionNueva: Int
     ) {
-        // Conservamos los registros existentes.
+        if (versionAnterior < 2) {
+            crearTablaUsuarios(db)
+        }
+    }
+
+    private fun crearTablaUsuarios(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                rut TEXT UNIQUE NOT NULL,
+                nombre TEXT NOT NULL,
+                clave TEXT NOT NULL,
+                rol TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+        // Usuario local por defecto para pruebas offline
+        db.execSQL(
+            """
+            INSERT OR IGNORE INTO usuarios (rut, nombre, clave, rol)
+            VALUES ('12345678-9', 'Juan Perez', 'Clave1234', 'TECNICO')
+            """.trimIndent()
+        )
+    }
+
+    fun registrarUsuarioLocal(
+        rut: String,
+        nombre: String,
+        clave: String,
+        rol: String = "TECNICO"
+    ): Boolean {
+        val valores = ContentValues().apply {
+            put("rut", rut.trim())
+            put("nombre", nombre.trim())
+            put("clave", clave)
+            put("rol", rol)
+        }
+        return writableDatabase.insertWithOnConflict(
+            "usuarios",
+            null,
+            valores,
+            SQLiteDatabase.CONFLICT_REPLACE
+        ) != -1L
+    }
+
+    fun validarLoginLocal(rut: String, clave: String): Pair<String, String>? {
+        readableDatabase.rawQuery(
+            """
+            SELECT nombre, rol
+            FROM usuarios
+            WHERE rut = ? AND clave = ?
+            LIMIT 1
+            """.trimIndent(),
+            arrayOf(rut.trim(), clave)
+        ).use { cursor ->
+            return if (cursor.moveToFirst()) {
+                Pair(cursor.getString(0), cursor.getString(1))
+            } else {
+                null
+            }
+        }
     }
 
     fun guardarRegistro(
