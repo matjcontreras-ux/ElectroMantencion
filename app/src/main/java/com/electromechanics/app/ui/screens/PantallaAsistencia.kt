@@ -1,4 +1,3 @@
-
 package com.electromechanics.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
@@ -144,14 +143,17 @@ fun PantallaAsistencia(
                         asistenciaViewModel.prepararFechaVisible()
 
                     try {
-                        if (!jornadaIniciada && horaSalida.isEmpty()) {
-
+                        if (!jornadaIniciada) {
                             val guardado = baseDatos.guardarRegistro(
                                 tipo = "ENTRADA",
                                 fechaHora = fechaHora
                             )
 
                             if (guardado) {
+                                asistenciaViewModel.restaurarEstado(
+                                    entrada = null,
+                                    salida = null
+                                )
                                 asistenciaViewModel.actualizarEntrada(
                                     fechaVisible
                                 )
@@ -160,9 +162,7 @@ fun PantallaAsistencia(
                                     "No se pudo guardar la entrada."
                                 )
                             }
-
-                        } else if (jornadaIniciada) {
-
+                        } else {
                             val guardado = baseDatos.guardarRegistro(
                                 tipo = "SALIDA",
                                 fechaHora = fechaHora
@@ -177,11 +177,6 @@ fun PantallaAsistencia(
                                     "No se pudo guardar la salida."
                                 )
                             }
-
-                        } else {
-                            asistenciaViewModel.mostrarMensaje(
-                                "La jornada ya finalizó. No puedes registrar otra entrada aquí."
-                            )
                         }
                     } catch (e: Exception) {
                         asistenciaViewModel.mostrarMensaje(
@@ -189,12 +184,13 @@ fun PantallaAsistencia(
                         )
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = asistenciaViewModel.puedeRegistrar()
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
                     text = if (jornadaIniciada) {
                         "Registrar salida"
+                    } else if (horaSalida.isNotEmpty()) {
+                        "Iniciar nueva jornada (Entrada)"
                     } else {
                         "Registrar entrada"
                     }

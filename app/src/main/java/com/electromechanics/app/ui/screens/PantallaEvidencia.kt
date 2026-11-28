@@ -1,8 +1,10 @@
 package com.electromechanics.app.ui.screens
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -26,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,6 +40,56 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+private fun obtenerCarpetaEvidencia(context: Context): File {
+    val carpeta = File(context.filesDir, "evidencia")
+    if (!carpeta.exists()) {
+        carpeta.mkdirs()
+    }
+    return carpeta
+}
+
+private fun guardarFotoLocal(context: Context, bitmap: Bitmap): String? {
+    return try {
+        val carpeta = obtenerCarpetaEvidencia(context)
+        val marcaTiempo = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val archivo = File(carpeta, "evidencia_$marcaTiempo.jpg")
+        FileOutputStream(archivo).use { salida ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, salida)
+        }
+        archivo.name
+    } catch (e: Exception) {
+        null
+    }
+}
+
+private fun cargarUltimaFotoLocal(context: Context): Pair<Bitmap, String>? {
+    return try {
+        val carpeta = obtenerCarpetaEvidencia(context)
+        val ultimaFoto = carpeta.listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".jpg") }
+            ?.maxByOrNull { it.lastModified() }
+
+        if (ultimaFoto != null) {
+            val bitmap = BitmapFactory.decodeFile(ultimaFoto.absolutePath)
+            if (bitmap != null) Pair(bitmap, ultimaFoto.name) else null
+        } else {
+            null
+        }
+    } catch (e: Exception) {
+        null
+    }
+}
+
+private fun contarFotosGuardadas(context: Context): Int {
+    val carpeta = obtenerCarpetaEvidencia(context)
+    return carpeta.listFiles()?.count { it.isFile && it.name.endsWith(".jpg") } ?: 0
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +97,9 @@ fun PantallaEvidencia(
     alVolver: () -> Unit
 ) {
     val contexto = LocalContext.current
+    val prefs = remember {
+        contexto.getSharedPreferences("evidencia_prefs", Context.MODE_PRIVATE)
+    }
 
     var descripcion by rememberSaveable {
         mutableStateOf("")
@@ -51,6 +107,14 @@ fun PantallaEvidencia(
 
     var mensaje by rememberSaveable {
         mutableStateOf("")
+    }
+
+    var nombreArchivoActual by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    var totalFotos by rememberSaveable {
+        mutableStateOf(0)
     }
 
     var evidenciaRegistrada by rememberSaveable {
@@ -61,14 +125,37 @@ fun PantallaEvidencia(
         mutableStateOf<Bitmap?>(null)
     }
 
+    // Al abrir la pantalla, recupera la última foto de la carpeta /evidencia
+    LaunchedEffect(Unit) {
+        val resultado = cargarUltimaFotoLocal(contexto)
+        if (resultado != null) {
+            fotografia = resultado.first
+            nombreArchivoActual = resultado.second
+        }
+        totalFotos = contarFotosGuardadas(contexto)
+
+        val descGuardada = prefs.getString("descripcion_evidencia", "") ?: ""
+        val registradaGuardada = prefs.getBoolean("evidencia_registrada", false)
+        if (descGuardada.isNotEmpty()) {
+            descripcion = descGuardada
+        }
+        evidenciaRegistrada = registradaGuardada
+    }
+
     val lanzadorCamara =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.TakePicturePreview()
         ) { imagen ->
             if (imagen != null) {
                 fotografia = imagen
+                val nombreGuardado = guardarFotoLocal(contexto, imagen)
+                if (nombreGuardado != null) {
+                    nombreArchivoActual = nombreGuardado
+                    totalFotos = contarFotosGuardadas(contexto)
+                }
                 evidenciaRegistrada = false
-                mensaje = "Fotografía tomada correctamente."
+                prefs.edit().putBoolean("evidencia_registrada", false).apply()
+                mensaje = "Fotografía guardada en carpeta /evidencia ($nombreArchivoActual)."
             } else {
                 mensaje = "No se tomó ninguna fotografía."
             }
@@ -111,7 +198,7 @@ fun PantallaEvidencia(
             )
 
             Text(
-                text = "Toma una fotografía y describe el trabajo realizado."
+                text = "Toma una fotografía y describe el trabajo realizado. Fotos guardadas en /evidencia: $totalFotos"
             )
 
             Card(
@@ -141,6 +228,12 @@ fun PantallaEvidencia(
                                 .fillMaxWidth()
                                 .height(250.dp)
                         )
+                        if (nombreArchivoActual.isNotEmpty()) {
+                            Text(
+                                text = "Archivo: evidencia/$nombreArchivoActual",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     } else {
                         Text(
                             text = "Todavía no has tomado una fotografía."
@@ -199,9 +292,13 @@ fun PantallaEvidencia(
                         }
 
                         else -> {
+                            prefs.edit()
+                                .putString("descripcion_evidencia", descripcion.trim())
+                                .putBoolean("evidencia_registrada", true)
+                                .apply()
                             evidenciaRegistrada = true
                             mensaje =
-                                "Evidencia registrada correctamente en pantalla."
+                                "Evidencia registrada correctamente en carpeta /evidencia."
                         }
                     }
                 },
@@ -228,7 +325,7 @@ fun PantallaEvidencia(
                         )
 
                         Text("Descripción: $descripcion")
-                        Text("Fotografía: adjunta en esta sesión")
+                        Text("Ruta: /evidencia/$nombreArchivoActual ($totalFotos fotos guardadas)")
                     }
                 }
             }

@@ -60,17 +60,29 @@ class BaseDatosLocal(context: Context) :
         clave: String,
         rol: String = "TECNICO"
     ): Boolean {
+        val rutLimpio = rut.trim()
+
+        // 1. Verificar que el usuario NO esté creado previamente
+        readableDatabase.rawQuery(
+            "SELECT id FROM usuarios WHERE rut = ? LIMIT 1",
+            arrayOf(rutLimpio)
+        ).use { cursor ->
+            if (cursor.moveToFirst()) {
+                return false // Ya existe, no se crea
+            }
+        }
+
+        // 2. Si no existe, lo inserta
         val valores = ContentValues().apply {
-            put("rut", rut.trim())
+            put("rut", rutLimpio)
             put("nombre", nombre.trim())
             put("clave", clave)
             put("rol", rol)
         }
-        return writableDatabase.insertWithOnConflict(
+        return writableDatabase.insert(
             "usuarios",
             null,
-            valores,
-            SQLiteDatabase.CONFLICT_REPLACE
+            valores
         ) != -1L
     }
 
